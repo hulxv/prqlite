@@ -1,3 +1,5 @@
+use ::prqlite_cli::Repl;
+
 fn main() {
-    println!("Hello, world!");
+    Repl::new().prompt("prqlite >").build().run();
 }
