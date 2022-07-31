@@ -1,5 +1,16 @@
-use ::prqlite_cli::Repl;
+use ::prqlite_cli::{
+    Repl,
+    {Args, ReplMode::*},
+};
+use clap::Parser;
 
 fn main() {
-    Repl::new().prompt("prqlite >").build().run();
+    let args = Args::parse();
+    match args.mode.unwrap_or_default() {
+        Simple => Repl::simple(),
+        Tui => Repl::tui(),
+    }
+    .prompt("prqlite >")
+    .build()
+    .run();
 }

@@ -1,5 +1,9 @@
 mod commands;
-use commands::*;
+mod simple;
+mod tui;
+
+use self::simple::*;
+use self::tui::*;
 
 use std::{
     io::{stdin, stdout, Write},
@@ -9,14 +13,23 @@ use std::{
 const DEFAULT_PROMPT: &str = ">";
 const DEFAULT_COMMAND_PREFIX: &str = ".";
 
+#[derive(Default, Clone, Copy)]
+enum ReplMode {
+    #[default]
+    Simple,
+    Tui,
+}
+
 pub struct Repl {
     prompt: String,
     command_prefix: String,
+    mode: ReplMode,
 }
 
 pub struct ReplBuilder {
     prompt: Option<String>,
     command_prefix: Option<String>,
+    mode: Option<ReplMode>,
 }
 
 impl Repl {
@@ -24,28 +37,28 @@ impl Repl {
         ReplBuilder {
             prompt: None,
             command_prefix: None,
+            mode: None,
         }
     }
-
+    pub fn simple() -> ReplBuilder {
+        ReplBuilder {
+            prompt: None,
+            command_prefix: None,
+            mode: Some(ReplMode::Simple),
+        }
+    }
+    pub fn tui() -> ReplBuilder {
+        ReplBuilder {
+            prompt: None,
+            command_prefix: None,
+            mode: Some(ReplMode::Tui),
+        }
+    }
     pub fn run(&self) {
-        let stdin = stdin();
-        let mut buf = String::new();
-        loop {
-            print!("{}", self.prompt);
-            stdout().flush().unwrap();
-
-            stdin.read_line(&mut buf).unwrap();
-
-            if buf.trim().starts_with(&self.command_prefix) {
-                match Commands::from_str(&buf[1..]) {
-                    Err(e) => println!("Error: {e}"),
-                    Ok(cmd) => cmd.exec(),
-                }
-            } else {
-                // TODO: Using quires here
-            }
-
-            buf.clear();
+        use ReplMode::*;
+        match self.mode {
+            Simple => SimpleRepl::new(&self.prompt, &self.command_prefix).run(),
+            Tui => TuiRepl::new(&self.command_prefix).run(),
         }
     }
 }
@@ -62,6 +75,7 @@ impl ReplBuilder {
     pub fn build(&self) -> Repl {
         Repl {
             prompt: self.prompt.clone().unwrap_or(DEFAULT_PROMPT.to_string()),
+            mode: self.mode.unwrap_or_default(),
             command_prefix: self
                 .command_prefix
                 .clone()
