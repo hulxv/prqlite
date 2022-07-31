@@ -1,0 +1,15 @@
+[package]
+name = "prqlite"
+version = "1.0.0-dev"
+edition = "2021"
+default-run = "prqlite"
+authors = ["Mohamed Emad (hulxxv@gmail.com)"]
+description = "Use Sqlite with PRQL" 
+readme = "README.md" 
+[workspace] 
+  members = [
+      "./prqlite-cli",
+  ]
+[[bin]]
+path = "./prqlite-cli/src/main.rs"
+name = "prqlite"
