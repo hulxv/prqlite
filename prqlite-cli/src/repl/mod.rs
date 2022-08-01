@@ -1,14 +1,10 @@
-mod commands;
 mod simple;
 mod tui;
 
 use self::simple::*;
 use self::tui::*;
 
-use std::{
-    io::{stdin, stdout, Write},
-    str::FromStr,
-};
+use anyhow::Result;
 
 const DEFAULT_PROMPT: &str = ">";
 const DEFAULT_COMMAND_PREFIX: &str = ".";
@@ -20,11 +16,13 @@ enum ReplMode {
     Tui,
 }
 
+#[derive(Clone)]
 pub struct Repl {
     prompt: String,
     command_prefix: String,
     mode: ReplMode,
 }
+#[derive(Clone)]
 
 pub struct ReplBuilder {
     prompt: Option<String>,
@@ -54,11 +52,11 @@ impl Repl {
             mode: Some(ReplMode::Tui),
         }
     }
-    pub fn run(&self) {
+    pub async fn run(&self) -> Result<()> {
         use ReplMode::*;
         match self.mode {
             Simple => SimpleRepl::new(&self.prompt, &self.command_prefix).run(),
-            Tui => TuiRepl::new(&self.command_prefix).run(),
+            Tui => TuiRepl::new(&self.prompt, &self.command_prefix).run().await,
         }
     }
 }

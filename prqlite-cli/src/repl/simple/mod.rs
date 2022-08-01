@@ -1,4 +1,7 @@
-use crate::repl::commands::Commands;
+mod commands;
+
+use anyhow::Result;
+use commands::Commands;
 use std::{
     io::{stdin, stdout, Write},
     str::FromStr,
@@ -16,11 +19,17 @@ impl SimpleRepl {
         }
     }
 
-    pub fn run(&self) {
+    pub fn run(&self) -> Result<()> {
+        println!(
+            r#"                           Welcome to PRQLite!   
+type ".help" to show avaliable commands, or start typing queries and ENJOY !
+"#
+        );
+
         let stdin = stdin();
         let mut buf = String::new();
         loop {
-            print!("{}", self.prompt);
+            print!("{} ", self.prompt);
             stdout().flush().unwrap();
 
             stdin.read_line(&mut buf).unwrap();
