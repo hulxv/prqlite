@@ -1,8 +1,8 @@
-use ::prqlite_cli::{
+use clap::Parser;
+use lib::{
     Repl,
     {Args, ReplMode::*},
 };
-use clap::Parser;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

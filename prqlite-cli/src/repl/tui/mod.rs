@@ -13,7 +13,7 @@ use tui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans, Text},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
     Frame, Terminal,
 };
 use unicode_width::UnicodeWidthStr;
@@ -43,11 +43,19 @@ impl Output {
 
 #[derive(Derivative, Debug, Clone, Copy)]
 #[derivative(Default)]
-struct CursorCoords {
+pub struct CursorCoords {
     #[derivative(Default(value = "1"))]
     pub x: u16,
     #[derivative(Default(value = "1"))]
     pub y: u16,
+    #[derivative(Default(value = "None"))]
+    pub min_x: Option<u16>,
+    #[derivative(Default(value = "None"))]
+    pub min_y: Option<u16>,
+    #[derivative(Default(value = "None"))]
+    pub max_x: Option<u16>,
+    #[derivative(Default(value = "None"))]
+    pub max_y: Option<u16>,
 }
 
 impl CursorCoords {
@@ -56,31 +64,57 @@ impl CursorCoords {
         self.y = y;
         self
     }
-    pub fn set_x(&mut self, x: u16) -> &mut Self {
-        self.x = x;
+    pub fn get(&self) -> (u16, u16) {
+        (self.x, self.y)
+    }
+    pub fn set_min(&mut self, (min_x, min_y): (u16, u16)) -> &mut Self {
+        self.min_x = Some(min_x);
+        self.min_y = Some(min_y);
         self
     }
-    pub fn set_y(&mut self, y: u16) -> &mut Self {
-        self.y = y;
+    pub fn set_max(&mut self, (max_x, max_y): (u16, u16)) -> &mut Self {
+        self.max_x = Some(max_x);
+        self.max_y = Some(max_y);
         self
     }
     pub fn up(&mut self) -> &mut Self {
         if self.y > 0 {
-            self.y -= 1;
+            match self.min_y {
+                Some(min) if min < self.y => self.y -= 1,
+                None => self.y -= 1,
+                _ => {}
+            }
         }
         self
     }
     pub fn down(&mut self) -> &mut Self {
-        self.y += 1;
+        if let Some(max_y) = self.max_y {
+            if max_y > self.y {
+                self.y += 1;
+            }
+        }
+        match self.max_y {
+            Some(max) if max > self.y => self.y += 1,
+            None => self.y += 1,
+            _ => {}
+        }
         self
     }
     pub fn right(&mut self) -> &mut Self {
-        self.x += 1;
+        match self.max_x {
+            Some(max) if max > self.x => self.x += 1,
+            None => self.x += 1,
+            _ => {}
+        }
         self
     }
     pub fn left(&mut self) -> &mut Self {
         if self.x > 0 {
-            self.x -= 1;
+            match self.min_x {
+                Some(min) if min < self.x => self.x -= 1,
+                None => self.x -= 1,
+                _ => {}
+            }
         }
         self
     }
@@ -88,13 +122,18 @@ impl CursorCoords {
 
 impl From<(u16, u16)> for CursorCoords {
     fn from((x, y): (u16, u16)) -> Self {
-        Self { x, y }
+        Self {
+            x,
+            y,
+            ..Default::default()
+        }
     }
 }
 
-pub struct CursorCoordsStateMode {
-    normal: CursorCoords,
-    insert: CursorCoords,
+#[derive(Default)]
+pub struct CursorCoordsState {
+    pub normal: CursorCoords,
+    pub insert: CursorCoords,
 }
 
 /// App holds the state of the application
@@ -106,6 +145,7 @@ struct App {
     input_mode: InputMode,
     /// History of recorded messages
     outputs: Vec<Output>,
+    coords_state: CursorCoordsState,
 }
 impl App {
     fn new(prompt: &str) -> Self {
@@ -114,6 +154,7 @@ impl App {
             input_mode: InputMode::Normal,
             outputs: Vec::new(),
             prompt: prompt.to_string(),
+            coords_state: CursorCoordsState::default(),
         }
     }
 }
@@ -154,9 +195,8 @@ impl TuiRepl {
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> {
-    let mut cursor_coords = CursorCoords::from((6, 0));
     loop {
-        terminal.draw(|f| ui(f, app, cursor_coords))?;
+        terminal.draw(|f| ui(f, app))?;
 
         if let Event::Key(key) = read()? {
             match app.input_mode {
@@ -169,10 +209,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                     }
 
                     KeyCode::Up => {
-                        cursor_coords.up();
+                        app.coords_state.normal.up();
                     }
                     KeyCode::Down => {
-                        cursor_coords.down();
+                        app.coords_state.normal.down();
                     }
 
                     _ => {}
@@ -193,6 +233,12 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                     KeyCode::Backspace => {
                         app.input.pop();
                     }
+                    KeyCode::Right => {
+                        app.coords_state.insert.right();
+                    }
+                    KeyCode::Left => {
+                        app.coords_state.insert.left();
+                    }
                     KeyCode::Esc => {
                         app.input_mode = InputMode::Normal;
                     }
@@ -203,15 +249,15 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
     }
 }
 
-fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App, mut cursor_coords: CursorCoords) {
+fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .margin(2)
+        .margin(1)
         .constraints(
             [
-                Constraint::Length(1),
-                Constraint::Min(3),
-                Constraint::Length(3),
+                Constraint::Percentage(5),
+                Constraint::Percentage(75),
+                Constraint::Percentage(15),
             ]
             .as_ref(),
         )
@@ -286,21 +332,42 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App, mut cursor_coords: CursorCoor
     f.render_widget(output_list, chunks[1]);
 
     // Input widget
-    let input = Paragraph::new(app.input.as_ref())
+
+    let input = Paragraph::new(vec![Spans::from(Span::raw(app.input.as_str()))])
         .style(match app.input_mode {
             InputMode::Normal => Style::default(),
             InputMode::Insert => Style::default().fg(Color::Yellow),
         })
-        .block(Block::default().borders(Borders::ALL).title("Input"));
+        .block(Block::default().borders(Borders::ALL).title("Input"))
+        .wrap(Wrap { trim: true });
     f.render_widget(input, chunks[2]);
+
     match app.input_mode {
         InputMode::Normal => {
-            cursor_coords.set(chunks[1].x + 1, chunks[1].y + 1);
+            let coords = &mut app.coords_state.normal;
+
+            coords.set_max((chunks[1].width, chunks[1].height));
+            coords.set_min((chunks[1].x, chunks[1].y));
+
+            if coords.get() == CursorCoords::default().get() {
+                coords.set(chunks[1].x + 1, chunks[1].y + 1);
+            }
+
+            f.set_cursor(coords.x, coords.y)
         }
 
         InputMode::Insert => {
-            cursor_coords.set(chunks[2].x + app.input.width() as u16 + 1, chunks[2].y + 1);
+            let coords = &mut app.coords_state.insert;
+            let lines = app.input.width() as u16 / chunks[2].width;
+
+            coords.set_max((chunks[2].width, chunks[2].height));
+            coords.set_min((chunks[1].x, chunks[1].y));
+
+            coords.set(
+                chunks[2].x + ((app.input.width() as u16 + lines) % chunks[2].width) + 1,
+                chunks[2].y + lines + 1,
+            );
+            f.set_cursor(coords.x, coords.y)
         }
     }
-    f.set_cursor(cursor_coords.x, cursor_coords.y)
 }
