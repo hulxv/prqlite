@@ -6,6 +6,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use derivative::Derivative;
+use prql_compiler::compile;
 use std::io::stdout;
 use tokio::time::{sleep, Duration};
 use tui::{
@@ -220,10 +221,25 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                 InputMode::Insert => match key.code {
                     KeyCode::Enter => {
                         if !app.input.is_empty() {
+                            let input: String = app.input.drain(..).collect();
                             app.outputs.push(Output::new(
                                 Local::now(),
-                                app.input.drain(..).collect(),
-                                String::from("Output"),
+                                input.clone(),
+                                match compile(&input) {
+                                    Err(e) => format!("Error: {e}"),
+                                    Ok(sql) => sql
+                                        .replace("\n", " ")
+                                        .split_whitespace()
+                                        .filter_map(|e| {
+                                            if e.is_empty() {
+                                                return None;
+                                            }
+                                            let mut e = e.to_string();
+                                            e.push_str(" ");
+                                            Some(e)
+                                        })
+                                        .collect(),
+                                },
                             ));
                         }
                     }
@@ -303,17 +319,30 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             if i != 0 {
                 content.insert(0, Spans::from(Span::raw("")))
             }
-            (app.prompt.clone() + " " + &m.command.clone())
-                .chars()
-                .collect::<Vec<char>>()
-                .chunks(app.prompt.len() + chunks[1].width as usize + 5)
-                .map(|c| c.iter().collect::<String>())
-                .for_each(|line| {
-                    content.push(Spans::from(Span::styled(
-                        line,
-                        Style::default().fg(Color::Blue),
-                    )))
-                });
+            vec![
+                app.prompt.clone() + " " + &m.command.clone(),
+                m.output.clone(),
+            ]
+            .iter()
+            .enumerate()
+            .for_each(|(i, t)| {
+                t.chars()
+                    .collect::<Vec<char>>()
+                    .chunks(app.prompt.len() + chunks[1].width as usize + 5)
+                    .map(|c| c.iter().collect::<String>())
+                    .for_each(|chunk| {
+                        chunk.split("\n").for_each(|line| {
+                            content.push(Spans::from(Span::styled(
+                                line.to_owned(),
+                                Style::default().fg(if i == 0 {
+                                    Color::Blue
+                                } else {
+                                    Color::LightCyan
+                                }),
+                            )));
+                        });
+                    });
+            });
 
             ListItem::new(content)
         })
