@@ -1,9 +1,8 @@
 use clap::Parser;
-use lib::{
+use prqlite_cli::{
     Repl,
     {Args, ReplMode::*},
 };
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();

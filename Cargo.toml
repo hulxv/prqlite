@@ -26,6 +26,8 @@ tokio = { version = "1.20.1", features = ["full"] }
 tui = { version = "0.18.0" }
 unicode-width = "0.1.9"
 
+prqlite-cli = {path = "./prqlite-cli"}
+
 
 [[bin]]
 path = "./prqlite-cli/src/main.rs"
