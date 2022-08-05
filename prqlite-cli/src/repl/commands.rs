@@ -1,38 +1,13 @@
-use comfy_table::{presets::UTF8_FULL, *};
 use std::{str::FromStr, string::ToString};
-
+pub trait ExecCommand {
+    type Output;
+    fn exec(&self) -> Self::Output;
+}
 pub enum Commands {
     Help,
     Quit,
     Exit { code: i32 },
-}
-
-impl Commands {
-    pub fn exec(&self) {
-        use Commands::*;
-        match self {
-            Exit { code } => {
-                println!("Program exit with {code}");
-                std::process::exit(*code);
-            }
-            Quit => std::process::exit(0),
-            Help => {
-                let mut table = Table::new();
-                table
-                    .load_preset(UTF8_FULL)
-                    .set_content_arrangement(ContentArrangement::Dynamic)
-                    .set_width(80)
-                    .set_header(vec![Cell::new("Command"), Cell::new("Description")])
-                    .add_row(vec![Cell::new("quit"), Cell::new("Exit PRQLite program")])
-                    .add_row(vec![
-                        Cell::new("exit <CODE>"),
-                        Cell::new("Exit PRQLite program with custom exit code"),
-                    ]);
-
-                println!("{table}");
-            }
-        }
-    }
+    Compile { input: String },
 }
 
 impl ToString for Commands {
@@ -41,6 +16,7 @@ impl ToString for Commands {
         match self {
             Quit => "quit".to_owned(),
             Exit { code } => format!("exit {code}"),
+            Compile { input } => format!("compile {input}"),
             Help => "help".to_owned(),
         }
     }
@@ -51,10 +27,22 @@ impl FromStr for Commands {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use Commands::*;
 
-        let args = s.trim().split_whitespace().collect::<Vec<&str>>();
+        let mut args = s.trim().split_whitespace().collect::<Vec<&str>>();
 
         match args[0] {
             "quit" | "q" => Ok(Quit),
+            "compile" => {
+                if args.len() <= 1 {
+                    return Err(
+                        "no args passing, you should passing PRQL query to compile to into SQL."
+                            .to_owned(),
+                    );
+                }
+
+                Ok(Compile {
+                    input: args.drain(1..).map(|s| s.to_string() + " ").collect(),
+                })
+            }
             "exit" => {
                 if args.len() <= 1 {
                     return Err("no args passing, you should passing exit code or use '.q' command to exit program with success exit code.".to_owned());

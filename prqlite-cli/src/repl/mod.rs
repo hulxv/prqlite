@@ -1,3 +1,4 @@
+mod commands;
 mod simple;
 mod tui;
 
