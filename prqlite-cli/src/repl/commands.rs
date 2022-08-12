@@ -27,7 +27,7 @@ impl FromStr for Commands {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use Commands::*;
 
-        let mut args = s.trim().split_whitespace().collect::<Vec<&str>>();
+        let mut args = s.split_whitespace().collect::<Vec<&str>>();
 
         match args[0] {
             "quit" | "q" => Ok(Quit),
@@ -50,7 +50,7 @@ impl FromStr for Commands {
                 if let Ok(code) = args[1].parse() {
                     return Ok(Exit { code });
                 }
-                return Err("exit code must be integer.".to_owned());
+                Err("exit code must be integer.".to_owned())
             }
             "help" => Ok(Help),
             e => Err(format!(
