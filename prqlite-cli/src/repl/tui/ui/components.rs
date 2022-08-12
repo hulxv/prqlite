@@ -98,7 +98,7 @@ impl HelpMessage {
                     Span::raw("Press "),
                     Span::styled("q", Style::default().add_modifier(Modifier::BOLD)),
                     Span::raw(" to exit, "),
-                    Span::styled("i", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::styled("i | Tab", Style::default().add_modifier(Modifier::BOLD)),
                     Span::raw(" to inserting commands and queries."),
                 ],
                 Style::default().add_modifier(Modifier::RAPID_BLINK),
@@ -106,7 +106,7 @@ impl HelpMessage {
             InputMode::Insert => (
                 vec![
                     Span::raw("Press "),
-                    Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::styled("Esc | Tab", Style::default().add_modifier(Modifier::BOLD)),
                     Span::raw(" to reading output, "),
                     Span::styled("Enter", Style::default().add_modifier(Modifier::BOLD)),
                     Span::raw(" to execute command or query"),

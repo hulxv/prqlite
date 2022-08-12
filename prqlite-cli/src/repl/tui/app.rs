@@ -139,10 +139,12 @@ impl<T> StatefulList<T> {
     pub fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                if self.items.is_empty() || i >= self.items.len() - 1 {
+                if self.items.is_empty() {
                     0
+                } else if i + 1 >= self.items.len() {
+                    i
                 } else {
-                    i + 1
+                    i + 1 as usize
                 }
             }
             None => 0,
@@ -155,7 +157,7 @@ impl<T> StatefulList<T> {
             Some(_) if self.items.is_empty() => 0,
             Some(i) => {
                 if i == 0 {
-                    self.items.len() - 1
+                    0
                 } else {
                     i - 1
                 }
@@ -163,6 +165,9 @@ impl<T> StatefulList<T> {
             None => 0,
         };
         self.state.select(Some(i));
+    }
+    pub fn last(&mut self) {
+        self.state.select(Some(self.items.len() - 1))
     }
 }
 
