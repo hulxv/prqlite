@@ -9,14 +9,20 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.58"
 chrono = "0.4.19"
-clap = {version = "3.2.16", features = ["derive"]}
+clap = {version = "4.1.6", features = ["derive"]}
 comfy-table = "6.0.0"
 crossterm = "0.24.0"
 derivative = "2.2.0"
-env_logger = "0.9.0"
+env_logger = "0.10.0"
 log = "0.4.17"
-prql-compiler = "0.2.5"
+prql-compiler = "0.8.1"
 thiserror = "1.0.31"
 tokio = { version = "1.20.1", features = ["full"] }
 tui = { version = "0.18.0" }
+tui-textarea = "0.1.5"
 unicode-width = "0.1.9"
+
+prqlite-rs ={ path = "../prqlite-rs" }
+regex = "1.9.1"
+rusqlite = "0.29.0"
+
