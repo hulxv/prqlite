@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Error};
 use std::{str::FromStr, string::ToString};
 pub trait ExecCommand {
     type Output;
@@ -23,7 +24,7 @@ impl ToString for Commands {
 }
 
 impl FromStr for Commands {
-    type Err = String;
+    type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use Commands::*;
 
@@ -33,10 +34,9 @@ impl FromStr for Commands {
             "quit" | "q" => Ok(Quit),
             "compile" => {
                 if args.len() <= 1 {
-                    return Err(
+                    return Err(anyhow!(
                         "no args passing, you should passing PRQL query to compile to into SQL."
-                            .to_owned(),
-                    );
+                    ));
                 }
 
                 Ok(Compile {
@@ -45,15 +45,15 @@ impl FromStr for Commands {
             }
             "exit" => {
                 if args.len() <= 1 {
-                    return Err("no args passing, you should passing exit code or use '.q' command to exit program with success exit code.".to_owned());
+                    return Err(anyhow!("no args passing, you should passing exit code or use '.q' command to exit program with success exit code."));
                 }
                 if let Ok(code) = args[1].parse() {
                     return Ok(Exit { code });
                 }
-                Err("exit code must be integer.".to_owned())
+                Err(anyhow!("exit code must be integer."))
             }
             "help" => Ok(Help),
-            e => Err(format!(
+            e => Err(anyhow!(
                 "command not found: '{e}' , type ':help' to show avaliable commands."
             )),
         }
