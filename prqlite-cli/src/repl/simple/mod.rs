@@ -70,6 +70,7 @@ impl ExecCommand for Commands {
 pub struct SimpleRepl {
     prompt: String,
     command_prefix: String,
+    state: &'a ReplState,
 }
 
 impl SimpleRepl {

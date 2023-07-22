@@ -3,12 +3,14 @@ use clap::{Parser, ValueEnum};
 #[clap(author, version, about)]
 pub struct Args {
     /// Select repl mode (default: simple)
-    #[clap(long, arg_enum)]
+    #[clap(long)]
     pub mode: Option<ReplMode>,
+    #[clap(long, short)]
+    /// Open database file
+    pub open: String,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Default)]
-// #[clap(ValueEnum)]
 pub enum ReplMode {
     #[default]
     Simple,
