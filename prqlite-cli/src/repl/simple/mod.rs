@@ -1,91 +1,54 @@
-use super::commands::{Commands, ExecCommand};
+mod command;
+
+use super::{
+    commands::{Commands, ExecCommand},
+    consts::PRQLITE_VERSION,
+    traits::Runner,
+};
+use crate::ReplState;
 use anyhow::Result;
-use comfy_table::{presets::UTF8_FULL, Cell, ContentArrangement, Table};
-use prql_compiler::compile;
+
+use comfy_table::{presets::UTF8_FULL, ContentArrangement, Table};
+use crossterm::style::Stylize;
+// use rusqlite::;
+use prql_compiler::PRQL_VERSION;
+use prqlite_rs::Prqlite;
+
+use rusqlite::{types::ValueRef::*, Row};
 use std::{
     io::{stdin, stdout, Write},
-    str::FromStr,
+    rc::Rc,
+    str::{from_utf8, FromStr},
 };
-impl ExecCommand for Commands {
-    type Output = ();
-    fn exec(&self) -> Self::Output {
-        use Commands::*;
-        match self {
-            Exit { code } => {
-                println!("Program exit with {code}");
-                std::process::exit(*code);
-            }
-            Quit => std::process::exit(0),
-            Help => {
-                let mut table = Table::new();
-                table
-                    .load_preset(UTF8_FULL)
-                    .set_content_arrangement(ContentArrangement::Dynamic)
-                    .set_width(80)
-                    .set_header(vec![
-                        Cell::new("Command"),
-                        Cell::new("Args"),
-                        Cell::new("Description"),
-                    ])
-                    .add_row(vec![
-                        Cell::new("quit"),
-                        Cell::new(""),
-                        Cell::new("Exit PRQLite program"),
-                    ])
-                    .add_row(vec![
-                        Cell::new("compile"),
-                        Cell::new("<PRQL>"),
-                        Cell::new("Compile PRQL into SQL"),
-                    ])
-                    .add_row(vec![
-                        Cell::new("exit"),
-                        Cell::new("<CODE>"),
-                        Cell::new("Exit PRQLite program with custom exit code"),
-                    ]);
 
-                println!("{table}");
-            }
-            Compile { input } => {
-                match compile(&input) {
-                    Err(e) => eprintln!("{e}"),
-                    Ok(sql) => println!(
-                        "{}",
-                        sql.replace("\n", " ")
-                            .split_whitespace()
-                            .filter_map(|e| {
-                                if e.is_empty() {
-                                    return None;
-                                }
-                                let mut e = e.to_string();
-                                e.push_str(" ");
-                                Some(e)
-                            })
-                            .collect::<String>(),
-                    ),
-                };
-            }
-        }
-    }
-}
-pub struct SimpleRepl {
+pub struct SimpleRepl<'a> {
     prompt: String,
     command_prefix: String,
     state: &'a ReplState,
 }
 
-impl SimpleRepl {
-    pub fn new<T: ToString>(prompt: T, command_prefix: T) -> Self {
+impl<'a> SimpleRepl<'a> {
+    pub fn new<T: ToString>(prompt: T, command_prefix: T, state: &'a ReplState) -> Self {
         Self {
             prompt: prompt.to_string(),
             command_prefix: command_prefix.to_string(),
+            state,
         }
     }
+}
 
-    pub fn run(&self) -> Result<()> {
+impl<'a> Runner for SimpleRepl<'a> {
+    fn run(&self) -> Result<()> {
         println!(
-            r#"                           Welcome to PRQLite!   
+            r#"                           W
+            Welcome to PRQLite!   
 type ".help" to show avaliable commands, or start typing queries and ENJOY !
-"#
+PRQL version: {:?}
+Prqlite version: {}
+
+"#,
+            PRQL_VERSION.to_string(),
+            PRQLITE_VERSION
         );
 
         let stdin = stdin();
@@ -96,16 +59,77 @@ type ".help" to show avaliable commands, or start typing queries and ENJOY !
 
             stdin.read_line(&mut buf).unwrap();
 
-            if buf.trim().starts_with(&self.command_prefix) {
-                match Commands::from_str(&buf[1..]) {
-                    Err(e) => println!("Error: {e}"),
-                    Ok(cmd) => cmd.exec(),
-                }
-            } else {
-                // TODO: Using quires here
+            if buf.trim().chars().last().unwrap() != ';' {
+                print!("..~");
+                continue;
+            }
+            buf = buf
+                .trim()
+                .to_owned()
+                .replacen(";", "", buf.rfind(";").unwrap());
+
+            let exec = match buf.trim().starts_with(&self.command_prefix) {
+                true => self.on_command(&buf),
+                false => self.on_regular_input(&buf),
+            };
+
+            if let Err(err) = exec {
+                eprintln!("\x1b[93m{}\x1b[0m", err.to_string());
             }
 
             buf.clear();
         }
     }
+
+    fn on_command(&self, buf: &str) -> Result<()> {
+        match Commands::from_str(&buf[1..]) {
+            Err(e) => return Err(e),
+            Ok(cmd) => cmd.exec(),
+        }
+        Ok(())
+    }
+    fn on_regular_input(&self, buf: &str) -> Result<()> {
+        match self.state.prqlite_conn.execute(buf) {
+            Ok(stmt) => {
+                let mut table = Table::new();
+                let mut stmt = stmt;
+                let column_names = stmt.column_names();
+                let column_count = stmt.column_count();
+
+                table
+                    .load_preset(UTF8_FULL)
+                    .set_content_arrangement(ContentArrangement::Dynamic)
+                    .set_width(80)
+                    .set_header(column_names);
+
+                let mut rows = stmt.query([]).unwrap();
+
+                while let Some(row) = rows.next()? {
+                    let mut idx = 0;
+                    let mut row_content: Vec<String> = vec![];
+
+                    while idx < column_count {
+                        row_content.push(row_value_parser(row, idx).unwrap());
+                        idx += 1;
+                    }
+                    table.add_row(row_content);
+                }
+                println!("{table}");
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
+    }
+}
+
+fn row_value_parser(row: &Row, idx: usize) -> Result<String> {
+    let column_type = row.get_ref_unwrap(idx);
+    let out: String = match column_type {
+        Null => "-".to_owned(),
+        Integer(v) => v.to_string(),
+        Blob(v) => format!("{:?}", v),
+        Text(v) => from_utf8(v).unwrap().to_owned(),
+        Real(v) => v.to_string(),
+    };
+    Ok(out)
 }
