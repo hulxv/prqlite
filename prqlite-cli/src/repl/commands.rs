@@ -6,6 +6,7 @@ pub trait ExecCommand {
     type Output;
     fn exec(&self, state: &ReplState) -> Self::Output;
 }
+
 pub enum Commands {
     Help,
     Quit,
@@ -33,7 +34,11 @@ impl FromStr for Commands {
         use Commands::*;
 
         let mut args = s.split_whitespace().collect::<Vec<&str>>();
-
+        if args.is_empty() {
+            return Err(anyhow!(
+                "no commands passed, type .help to show available commands."
+            ));
+        }
         match args[0] {
             "quit" | "q" => Ok(Quit),
             "compile" => {
