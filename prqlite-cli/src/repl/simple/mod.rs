@@ -5,7 +5,7 @@ use super::{
     consts::PRQLITE_VERSION,
     traits::Runner,
 };
-use crate::ReplState;
+use crate::{utils::row_value_parser, ReplState};
 use anyhow::Result;
 
 use comfy_table::{presets::UTF8_FULL, ContentArrangement, Table};
@@ -84,7 +84,7 @@ Prqlite version: {}
     fn on_command(&self, buf: &str) -> Result<()> {
         match Commands::from_str(&buf[1..]) {
             Err(e) => return Err(e),
-            Ok(cmd) => cmd.exec(),
+            Ok(cmd) => cmd.exec(self.state),
         }
         Ok(())
     }
@@ -120,16 +120,4 @@ Prqlite version: {}
             Err(err) => Err(err),
         }
     }
-}
-
-fn row_value_parser(row: &Row, idx: usize) -> Result<String> {
-    let column_type = row.get_ref_unwrap(idx);
-    let out: String = match column_type {
-        Null => "-".to_owned(),
-        Integer(v) => v.to_string(),
-        Blob(v) => format!("{:?}", v),
-        Text(v) => from_utf8(v).unwrap().to_owned(),
-        Real(v) => v.to_string(),
-    };
-    Ok(out)
 }
