@@ -9,17 +9,29 @@ use crate::{utils::row_value_parser, ReplState};
 use anyhow::Result;
 
 use comfy_table::{presets::UTF8_FULL, ContentArrangement, Table};
-use crossterm::style::Stylize;
-// use rusqlite::;
 use prql_compiler::PRQL_VERSION;
-use prqlite_rs::Prqlite;
 
-use rusqlite::{types::ValueRef::*, Row};
 use std::{
-    io::{stdin, stdout, Write},
-    rc::Rc,
-    str::{from_utf8, FromStr},
+    io::{stdout, Stdout, Write},
+    str::FromStr,
 };
+
+use crossterm::event::{read, Event, KeyCode, KeyEvent};
+
+lazy_static! {
+    static ref WELCOME_MSG: String = {
+        format!(
+            r#"
+                     Welcome to PRQLite!   
+type ".help" to show avaliable commands, or start typing queries.
+PRQL version: {:?}
+Prqlite version: {}
+    "#,
+            PRQL_VERSION.to_string(),
+            PRQLITE_VERSION
+        )
+    };
+}
 
 pub struct SimpleRepl<'a> {
     prompt: String,
@@ -39,30 +51,14 @@ impl<'a> SimpleRepl<'a> {
 
 impl<'a> Runner for SimpleRepl<'a> {
     fn run(&self) -> Result<()> {
-        println!(
-            r#"                           W
-            Welcome to PRQLite!   
-type ".help" to show avaliable commands, or start typing queries and ENJOY !
-PRQL version: {:?}
-Prqlite version: {}
-
-"#,
-            PRQL_VERSION.to_string(),
-            PRQLITE_VERSION
-        );
-
-        let stdin = stdin();
+        let mut stdout = stdout();
         let mut buf = String::new();
+
+        println!("{}", *WELCOME_MSG);
+
         loop {
-            print!("{} ", self.prompt);
-            stdout().flush().unwrap();
+            read_input(&mut stdout, &mut buf, self.prompt.clone())?;
 
-            stdin.read_line(&mut buf).unwrap();
-
-            if buf.trim().chars().last().unwrap() != ';' {
-                print!("..~");
-                continue;
-            }
             buf = buf
                 .trim()
                 .to_owned()
@@ -120,4 +116,29 @@ Prqlite version: {}
             Err(err) => Err(err),
         }
     }
+}
+
+pub fn read_input(stdout: &mut Stdout, buf: &mut String, prompt: String) -> Result<()> {
+    print!("{} ", prompt);
+    stdout.flush().unwrap();
+
+    while let Event::Key(KeyEvent { code, .. }) = read()? {
+        match code {
+            KeyCode::Enter => {
+                if buf.trim().chars().last().unwrap() != ';' {
+                    buf.push_str("\n");
+                    print!("..~");
+                    stdout.flush()?;
+                    continue;
+                }
+                break;
+            }
+            KeyCode::Char(c) => {
+                buf.push(c);
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
 }
