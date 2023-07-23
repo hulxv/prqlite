@@ -4,11 +4,20 @@ mod simple;
 mod traits;
 mod tui;
 
+use std::str::FromStr;
+
+use crate::utils::row_value_parser;
+
+use self::commands::Commands;
+use self::commands::ExecCommand;
 use self::simple::*;
 use self::traits::*;
 use self::tui::*;
 
 use anyhow::Result;
+use comfy_table::presets::UTF8_FULL;
+use comfy_table::ContentArrangement;
+use comfy_table::Table;
 use prqlite_rs::Prqlite;
 
 const DEFAULT_PROMPT: &str = ">";
@@ -111,5 +120,55 @@ impl ReplState {
         Ok(Self {
             prqlite_conn: Prqlite::open(path)?,
         })
+    }
+}
+
+pub struct ReplInputEvent<'a> {
+    pub state: &'a ReplState,
+}
+
+impl<'a> ReplInputEvent<'a> {
+    pub fn new(state: &'a ReplState) -> Self {
+        Self { state }
+    }
+    pub fn on_command(&self, buf: &str) -> Result<String> {
+        match Commands::from_str(&buf[1..]) {
+            Err(e) => return Err(e),
+            Ok(cmd) => match cmd.exec(self.state) {
+                Ok(out) => Ok(out),
+                Err(e) => return Err(e),
+            },
+        }
+    }
+    pub fn on_regular_input(&self, buf: &str) -> Result<String> {
+        match self.state.prqlite_conn.execute(buf) {
+            Ok(stmt) => {
+                let mut table = Table::new();
+                let mut stmt = stmt;
+                let column_names = stmt.column_names();
+                let column_count = stmt.column_count();
+
+                table
+                    .load_preset(UTF8_FULL)
+                    .set_content_arrangement(ContentArrangement::Dynamic)
+                    .set_width(80)
+                    .set_header(column_names);
+
+                let mut rows = stmt.query([]).unwrap();
+
+                while let Some(row) = rows.next()? {
+                    let mut idx = 0;
+                    let mut row_content: Vec<String> = vec![];
+
+                    while idx < column_count {
+                        row_content.push(row_value_parser(row, idx).unwrap());
+                        idx += 1;
+                    }
+                    table.add_row(row_content);
+                }
+                Ok(table.to_string())
+            }
+            Err(err) => Err(err),
+        }
     }
 }

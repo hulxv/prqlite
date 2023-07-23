@@ -1,20 +1,11 @@
-mod command;
+use crate::{ReplInputEvent, ReplState};
 
-use super::{
-    commands::{Commands, ExecCommand},
-    consts::PRQLITE_VERSION,
-    traits::Runner,
-};
-use crate::{utils::row_value_parser, ReplState};
+use super::{consts::PRQLITE_VERSION, traits::Runner};
 use anyhow::Result;
 
-use comfy_table::{presets::UTF8_FULL, ContentArrangement, Table};
 use prql_compiler::PRQL_VERSION;
 
-use std::{
-    io::{stdout, Stdout, Write},
-    str::FromStr,
-};
+use std::io::{stdout, Stdout, Write};
 
 use crossterm::event::{read, Event, KeyCode, KeyEvent};
 
@@ -51,6 +42,7 @@ impl<'a> SimpleRepl<'a> {
 
 impl<'a> Runner for SimpleRepl<'a> {
     fn run(&self) -> Result<()> {
+        let repl_input_event = ReplInputEvent::new(self.state);
         let mut stdout = stdout();
         let mut buf = String::new();
 
@@ -64,56 +56,18 @@ impl<'a> Runner for SimpleRepl<'a> {
                 .to_owned()
                 .replacen(";", "", buf.rfind(";").unwrap());
 
-            let exec = match buf.trim().starts_with(&self.command_prefix) {
-                true => self.on_command(&buf),
-                false => self.on_regular_input(&buf),
+            let exec_output = match buf.trim().starts_with(&self.command_prefix) {
+                true => repl_input_event.on_command(&buf),
+                false => repl_input_event.on_regular_input(&buf),
             };
 
-            if let Err(err) = exec {
+            if let Err(err) = exec_output {
                 eprintln!("\x1b[93m{}\x1b[0m", err.to_string());
+            } else {
+                println!("{}", exec_output.unwrap());
             }
 
             buf.clear();
-        }
-    }
-
-    fn on_command(&self, buf: &str) -> Result<()> {
-        match Commands::from_str(&buf[1..]) {
-            Err(e) => return Err(e),
-            Ok(cmd) => cmd.exec(self.state),
-        }
-        Ok(())
-    }
-    fn on_regular_input(&self, buf: &str) -> Result<()> {
-        match self.state.prqlite_conn.execute(buf) {
-            Ok(stmt) => {
-                let mut table = Table::new();
-                let mut stmt = stmt;
-                let column_names = stmt.column_names();
-                let column_count = stmt.column_count();
-
-                table
-                    .load_preset(UTF8_FULL)
-                    .set_content_arrangement(ContentArrangement::Dynamic)
-                    .set_width(80)
-                    .set_header(column_names);
-
-                let mut rows = stmt.query([]).unwrap();
-
-                while let Some(row) = rows.next()? {
-                    let mut idx = 0;
-                    let mut row_content: Vec<String> = vec![];
-
-                    while idx < column_count {
-                        row_content.push(row_value_parser(row, idx).unwrap());
-                        idx += 1;
-                    }
-                    table.add_row(row_content);
-                }
-                println!("{table}");
-                Ok(())
-            }
-            Err(err) => Err(err),
         }
     }
 }
