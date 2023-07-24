@@ -1,15 +1,17 @@
-use super::{traits::*, App, InputMode};
+use crate::repl::tui::OutputType;
+
+use super::{App, InputMode};
+use crossterm::event::{Event, KeyEvent};
 use tui::{
-    backend::Backend,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::Rect,
     style::{Color, Modifier, Style},
     text::{Span, Spans, Text},
     widgets::{
         Block, Borders, List, ListItem, ListState, Paragraph, StatefulWidget as TuiStatefulWidget,
-        Widget as TuiWidget, Wrap,
+        Widget,
     },
-    Frame,
 };
+
 pub struct History;
 impl History {
     pub fn widget(app: &App, chunk: Rect) -> impl TuiStatefulWidget<State = ListState> {
@@ -27,7 +29,9 @@ impl History {
                 if i != 0 {
                     content.insert(0, Spans::from(Span::raw("")))
                 }
-                (app.prompt.clone() + " " + &m.command.clone())
+
+                [app.prompt.clone(), m.command.clone()]
+                    .join(" ")
                     .chars()
                     .collect::<Vec<char>>()
                     .chunks(app.prompt.len() + chunk.width as usize + 5)
@@ -38,26 +42,24 @@ impl History {
                             Style::default().fg(Color::Blue),
                         )))
                     });
-                match &m.output {
-                    Ok(o) => o.clone(),
-                    Err(e) => e.to_string(),
-                }
-                .chars()
-                .collect::<Vec<char>>()
-                .chunks(chunk.width as usize + 5)
-                .map(|c| c.iter().collect::<String>())
-                .for_each(|chunk| {
-                    chunk.split("\n").for_each(|line| {
-                        content.push(Spans::from(Span::styled(
-                            line.to_owned(),
-                            Style::default().fg(if m.output.is_ok() {
-                                Color::LightCyan
-                            } else {
-                                Color::Red
-                            }),
-                        )));
-                    })
-                });
+
+                m.output
+                    .chars()
+                    .collect::<Vec<char>>()
+                    .chunks(chunk.width as usize + 10)
+                    .map(|c| c.iter().collect::<String>())
+                    .for_each(|chunk| {
+                        chunk.lines().for_each(|line| {
+                            content.push(Spans::from(Span::styled(
+                                line.to_owned(),
+                                Style::default().fg(if m._type == OutputType::Success {
+                                    Color::LightCyan
+                                } else {
+                                    Color::Red
+                                }),
+                            )));
+                        })
+                    });
                 ListItem::new(content)
             })
             .collect();
@@ -77,21 +79,28 @@ impl History {
 }
 
 pub struct Input;
-impl Input {
-    pub fn widget(app: &App) -> impl TuiWidget + '_ {
-        Paragraph::new(vec![Spans::from(Span::raw(app.input.as_str()))])
+impl<'a> Input {
+    pub fn widget(app: &'a mut App, chunk: Rect) -> impl Widget + 'a {
+        let input = app
+            .input
+            .chars()
+            .collect::<Vec<char>>()
+            .chunks(chunk.width as usize - 3)
+            .map(|c| Spans::from(Span::raw(c.iter().collect::<String>())))
+            .collect::<Vec<Spans>>();
+
+        Paragraph::new(input)
             .style(match app.input_mode {
                 InputMode::Normal => Style::default(),
                 InputMode::Insert => Style::default().fg(Color::Yellow),
             })
             .block(Block::default().borders(Borders::ALL).title("Input"))
-            .wrap(Wrap { trim: true })
     }
 }
 
 pub struct HelpMessage;
-impl HelpMessage {
-    pub fn widget(app: &App) -> impl TuiWidget + '_ {
+impl<'a> HelpMessage {
+    pub fn widget(app: &'a App) -> impl Widget + 'a {
         let (msg, style) = match app.input_mode {
             InputMode::Normal => (
                 vec![
@@ -99,7 +108,9 @@ impl HelpMessage {
                     Span::styled("q", Style::default().add_modifier(Modifier::BOLD)),
                     Span::raw(" to exit, "),
                     Span::styled("i | Tab", Style::default().add_modifier(Modifier::BOLD)),
-                    Span::raw(" to inserting commands and queries."),
+                    Span::raw(" to inserting commands and queries, "),
+                    Span::styled("c", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw(" to clear history."),
                 ],
                 Style::default().add_modifier(Modifier::RAPID_BLINK),
             ),
