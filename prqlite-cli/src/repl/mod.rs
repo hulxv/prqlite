@@ -14,7 +14,7 @@ use self::simple::*;
 use self::traits::*;
 use self::tui::*;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::ContentArrangement;
 use comfy_table::Table;
@@ -75,7 +75,11 @@ impl<'a> Repl<'a> {
         use ReplMode::*;
         match self.mode {
             Simple => SimpleRepl::new(&self.prompt, &self.command_prefix, self.state.clone()).run(),
-            Tui => TuiRepl::new(&self.prompt, &self.command_prefix).run().await,
+            Tui => {
+                TuiRepl::new(&self.prompt, &self.command_prefix, self.state.clone())
+                    .run()
+                    .await
+            }
         }
     }
 }
@@ -90,14 +94,9 @@ impl ReplBuilder {
         self
     }
     pub fn state(&mut self, conn: &str) -> &mut Self {
-        self.state = Some(
-            ReplState::new(conn)
-                .map_err(|err| {
-                    eprintln!("Error: cannot open database: {err}");
-                    std::process::exit(1);
-                })
-                .unwrap(),
-        );
+        let mut repl_state = ReplState::new();
+        repl_state.set_conn(conn).unwrap();
+        self.state = Some(repl_state);
         self
     }
     pub fn build(&self) -> Repl {
@@ -112,14 +111,26 @@ impl ReplBuilder {
         }
     }
 }
+
+#[derive(Debug)]
 pub struct ReplState {
-    pub prqlite_conn: Prqlite,
+    pub prqlite_conn: Option<Prqlite>,
 }
-impl ReplState {
-    pub fn new(path: &str) -> Result<Self> {
-        Ok(Self {
-            prqlite_conn: Prqlite::open(path)?,
-        })
+impl<'a> ReplState {
+    pub fn new() -> Self {
+        ReplState { prqlite_conn: None }
+    }
+    pub fn set_conn(&mut self, path: &str) -> Result<&mut Self> {
+        self.prqlite_conn = Some(Prqlite::open(path)?);
+        Ok(self)
+    }
+    pub fn get_conn(&self) -> Result<&Prqlite> {
+        if let Some(conn) = self.prqlite_conn.as_ref() {
+            return Ok(conn);
+        }
+        Err(anyhow!(
+            "Didn't connected with database, please restart program with '--open <DATABASE_FILE>' flag."
+        ))
     }
 }
 
@@ -141,7 +152,11 @@ impl<'a> ReplInputEvent<'a> {
         }
     }
     pub fn on_regular_input(&self, buf: &str) -> Result<String> {
-        match self.state.prqlite_conn.execute(buf) {
+        let conn = self.state.get_conn();
+        if let Err(err) = conn {
+            return Err(err);
+        }
+        match conn.unwrap().execute(buf) {
             Ok(stmt) => {
                 let mut table = Table::new();
                 let mut stmt = stmt;
@@ -166,7 +181,7 @@ impl<'a> ReplInputEvent<'a> {
                     }
                     table.add_row(row_content);
                 }
-                Ok(table.to_string())
+                Ok(table.lines().collect::<Vec<String>>().join("\n"))
             }
             Err(err) => Err(err),
         }

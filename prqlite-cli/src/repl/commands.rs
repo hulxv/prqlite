@@ -150,7 +150,7 @@ impl ExecCommand for Commands {
                     )),
                 }
             }
-            Sql { input } => match state.prqlite_conn.execute_with_sql(input) {
+            Sql { input } => match state.get_conn()?.execute_with_sql(input) {
                 Ok(stmt) => {
                     let mut table = Table::new();
                     let mut stmt = stmt;

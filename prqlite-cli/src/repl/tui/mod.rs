@@ -1,32 +1,37 @@
 mod app;
+mod coords;
 mod ui;
+
 pub(super) use app::*;
 pub(super) use ui::*;
 
-use anyhow::{Error, Result};
+use anyhow::Result;
 use chrono::Local;
 use crossterm::{
     event::{read, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use prql_compiler::compile;
-use std::io::stdout;
+use std::{fmt::format, io::stdout};
 use tui::{
     backend::{Backend, CrosstermBackend},
     terminal::Terminal,
 };
 
-pub struct TuiRepl {
+use crate::{ReplInputEvent, ReplState};
+
+pub struct TuiRepl<'a> {
     prompt: String,
     command_prefix: String,
+    state: &'a ReplState,
 }
 
-impl TuiRepl {
-    pub fn new<T: ToString>(prompt: T, command_prefix: T) -> Self {
+impl<'a> TuiRepl<'a> {
+    pub fn new<T: ToString>(prompt: T, command_prefix: T, state: &'a ReplState) -> Self {
         Self {
             command_prefix: command_prefix.to_string(),
             prompt: prompt.to_string(),
+            state,
         }
     }
 
@@ -34,13 +39,13 @@ impl TuiRepl {
         enable_raw_mode()?;
 
         let mut stdout = stdout();
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+        execute!(stdout, EnterAlternateScreen, EnableMouseCapture,)?;
 
-        let mut app = App::new(&self.prompt);
+        let mut app = App::new(&self.prompt, &self.command_prefix);
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
 
-        run_app(&mut terminal, &mut app)?;
+        run_app(&mut terminal, &mut app, self)?;
         disable_raw_mode()?;
         execute!(
             terminal.backend_mut(),
@@ -52,10 +57,14 @@ impl TuiRepl {
     }
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> {
-    let mut history_command_index = 0;
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App, repl: &TuiRepl) -> Result<()> {
     loop {
         terminal.draw(|f| ui(f, app))?;
+        match app.input_mode {
+            InputMode::Normal => terminal.hide_cursor(),
+            InputMode::Insert => terminal.show_cursor(),
+        }
+        .unwrap();
         match read()? {
             Event::Mouse(ev) => match ev.kind {
                 MouseEventKind::ScrollUp => app.state.history.previous(),
@@ -80,6 +89,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                                 return Ok(());
                             }
 
+                            KeyCode::Char('c') => {
+                                app.state.history.clear();
+                            }
+
                             KeyCode::Up => app.state.history.previous(),
                             KeyCode::Down => app.state.history.next(),
 
@@ -89,27 +102,24 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                             KeyCode::Enter => {
                                 if !app.input.is_empty() {
                                     let input: String = app.input.drain(..).collect();
-                                    let output: Output = Output::new(
-                                        Local::now(),
-                                        input.clone(),
-                                        match compile(&input) {
-                                            Err(e) => Err(anyhow::anyhow!(e.to_string())),
-                                            Ok(sql) => Ok(sql
-                                                .replace("\n", " ")
-                                                .split_whitespace()
-                                                .filter_map(|e| {
-                                                    if e.is_empty() {
-                                                        return None;
-                                                    }
-                                                    let mut e = e.to_string();
-                                                    e.push_str(" ");
-                                                    Some(e)
-                                                })
-                                                .collect()),
-                                        },
-                                    );
 
-                                    app.state.history.items.push(output);
+                                    let repl_input_event = ReplInputEvent::new(&repl.state);
+                                    let exec_output =
+                                        match input.trim().starts_with(&app.command_prefix) {
+                                            true => repl_input_event.on_command(&input),
+                                            false => repl_input_event.on_regular_input(&input),
+                                        };
+
+                                    match exec_output {
+                                        Ok(out) => {
+                                            app.push_msg(input.clone(), out, OutputType::Success)
+                                        }
+                                        Err(err) => app.push_msg(
+                                            input.clone(),
+                                            err.to_string(),
+                                            OutputType::Error,
+                                        ),
+                                    }
                                     app.state.history.last()
                                 }
                             }
