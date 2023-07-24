@@ -31,10 +31,16 @@ impl CursorCoords {
         self.min_y = Some(min_y);
         self
     }
+    pub fn get_min(&self) -> (Option<u16>, Option<u16>) {
+        (self.min_x, self.min_y)
+    }
     pub fn set_max(&mut self, (max_x, max_y): (u16, u16)) -> &mut Self {
         self.max_x = Some(max_x);
         self.max_y = Some(max_y);
         self
+    }
+    pub fn get_max(&self) -> (Option<u16>, Option<u16>) {
+        (self.max_x, self.max_y)
     }
     pub fn up(&mut self) {
         if self.y > 0 {
