@@ -4,6 +4,8 @@ mod tests;
 use anyhow::Result;
 use prql_compiler::{compile, Options};
 use rusqlite::{Connection, Error::ExecuteReturnedResults, Params, Statement};
+
+#[derive(Debug)]
 pub struct Prqlite {
     conn: Connection,
 }
