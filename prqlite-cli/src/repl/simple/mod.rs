@@ -48,6 +48,13 @@ impl<'a> Runner for SimpleRepl<'a> {
 
         println!("{}", *WELCOME_MSG);
 
+        match self.state.get_prqlite_conn().unwrap().get_conn() {
+            Some("") => println!("Connected to a transient in-memory database."),
+            None => {
+                panic!("Database is unknown or not exist.")
+            }
+            _ => {}
+        }
         loop {
             read_input(&mut stdout, &mut buf, self.prompt.clone())?;
 

@@ -7,6 +7,7 @@ pub struct Args {
     pub mode: Option<ReplMode>,
     #[clap(long, short)]
     /// Open database file
+    #[arg(short, long, default_value_t = String::from(":memory:"))]
     pub open: String,
 }
 

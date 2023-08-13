@@ -124,7 +124,7 @@ impl<'a> ReplState {
         self.prqlite_conn = Some(Prqlite::open(path)?);
         Ok(self)
     }
-    pub fn get_conn(&self) -> Result<&Prqlite> {
+    pub fn get_prqlite_conn(&self) -> Result<&Prqlite> {
         if let Some(conn) = self.prqlite_conn.as_ref() {
             return Ok(conn);
         }
@@ -152,7 +152,7 @@ impl<'a> ReplInputEvent<'a> {
         }
     }
     pub fn on_regular_input(&self, buf: &str) -> Result<String> {
-        let conn = self.state.get_conn();
+        let conn = self.state.get_prqlite_conn();
         if let Err(err) = conn {
             return Err(err);
         }

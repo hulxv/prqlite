@@ -28,19 +28,20 @@ impl History {
                 if i != 0 {
                     content.insert(0, Spans::from(Span::raw("")))
                 }
-
-                [app.prompt.clone(), m.command.clone()]
-                    .join(" ")
-                    .chars()
-                    .collect::<Vec<char>>()
-                    .chunks(app.prompt.len() + chunk.width as usize + 10)
-                    .map(|c| c.iter().collect::<String>())
-                    .for_each(|line| {
-                        content.push(Spans::from(Span::styled(
-                            line,
-                            Style::default().fg(Color::Blue),
-                        )))
-                    });
+                if !m.command.is_empty() {
+                    [app.prompt.clone(), m.command.clone()]
+                        .join(" ")
+                        .chars()
+                        .collect::<Vec<char>>()
+                        .chunks(app.prompt.len() + chunk.width as usize + 10)
+                        .map(|c| c.iter().collect::<String>())
+                        .for_each(|line| {
+                            content.push(Spans::from(Span::styled(
+                                line,
+                                Style::default().fg(Color::Blue),
+                            )))
+                        });
+                }
 
                 // TODO: refactor this part
                 let out_lines = m.output.lines().collect::<Vec<&str>>();
@@ -57,10 +58,10 @@ impl History {
                     chunk.lines().for_each(|line| {
                         content.push(Spans::from(Span::styled(
                             line.to_owned(),
-                            Style::default().fg(if m._type == OutputType::Success {
-                                Color::LightCyan
-                            } else {
-                                Color::Red
+                            Style::default().fg(match m._type {
+                                OutputType::Error => Color::Red,
+                                OutputType::Warn => Color::LightYellow,
+                                OutputType::Success => Color::LightGreen,
                             }),
                         )));
                     })

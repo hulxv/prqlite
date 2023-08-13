@@ -44,6 +44,26 @@ impl<'a> TuiRepl<'a> {
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
 
+        app.push_msg(
+            "",
+            "TUI mode doesn't ready yet. There's a lot of features didn't implemented yet.",
+            OutputType::Warn,
+        );
+
+        match self.state.get_prqlite_conn().unwrap().get_conn() {
+            Some("") => {
+                app.push_msg(
+                    "",
+                    "Connected to a transient in-memory database.",
+                    OutputType::Warn,
+                );
+            }
+            None => {
+                panic!("Database is unknown or not exist.")
+            }
+            _ => {}
+        }
+
         run_app(&mut terminal, &mut app, self)?;
         disable_raw_mode()?;
         execute!(

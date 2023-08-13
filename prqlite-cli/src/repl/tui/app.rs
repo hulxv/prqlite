@@ -17,6 +17,7 @@ pub enum InputMode {
 pub enum OutputType {
     Error,
     Success,
+    Warn,
 }
 
 #[derive(Debug)]
