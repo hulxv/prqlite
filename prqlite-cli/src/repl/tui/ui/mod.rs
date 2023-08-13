@@ -2,7 +2,7 @@ mod components;
 mod traits;
 use components::*;
 
-use super::{App, InputMode, OutputType};
+use super::{App, InputMode};
 
 use tui::{
     backend::Backend,

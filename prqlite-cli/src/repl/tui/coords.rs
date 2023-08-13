@@ -1,3 +1,4 @@
+#![allow(unused, dead_code)]
 use derivative::Derivative;
 
 #[derive(Derivative, Debug, Clone, Copy)]

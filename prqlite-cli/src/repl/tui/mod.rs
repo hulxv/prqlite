@@ -6,13 +6,12 @@ pub(super) use app::*;
 pub(super) use ui::*;
 
 use anyhow::Result;
-use chrono::Local;
 use crossterm::{
     event::{read, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, MouseEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{fmt::format, io::stdout};
+use std::io::stdout;
 use tui::{
     backend::{Backend, CrosstermBackend},
     terminal::Terminal,
@@ -39,7 +38,7 @@ impl<'a> TuiRepl<'a> {
         enable_raw_mode()?;
 
         let mut stdout = stdout();
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture,)?;
+        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
 
         let mut app = App::new(&self.prompt, &self.command_prefix);
         let backend = CrosstermBackend::new(stdout);
@@ -125,6 +124,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App, repl: &TuiRepl
                             }
                             KeyCode::Char(c) => {
                                 app.input.push(c);
+                                // app.state.history.last();
                             }
                             KeyCode::Backspace => {
                                 app.input.pop();

@@ -4,9 +4,6 @@ use super::coords::*;
 
 use chrono::{DateTime, Local};
 
-use anyhow::Result;
-use clap::command;
-use derivative::Derivative;
 use tui::widgets::ListState;
 
 type LocalTime = DateTime<Local>;
