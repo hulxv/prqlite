@@ -1,14 +1,13 @@
 use crate::repl::tui::OutputType;
 
 use super::{App, InputMode};
-use crossterm::event::{Event, KeyEvent};
 use tui::{
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Span, Spans, Text},
     widgets::{
         Block, Borders, List, ListItem, ListState, Paragraph, StatefulWidget as TuiStatefulWidget,
-        Widget,
+        Widget, Wrap,
     },
 };
 
@@ -34,7 +33,7 @@ impl History {
                     .join(" ")
                     .chars()
                     .collect::<Vec<char>>()
-                    .chunks(app.prompt.len() + chunk.width as usize + 5)
+                    .chunks(app.prompt.len() + chunk.width as usize + 10)
                     .map(|c| c.iter().collect::<String>())
                     .for_each(|line| {
                         content.push(Spans::from(Span::styled(
@@ -43,23 +42,29 @@ impl History {
                         )))
                     });
 
-                m.output
-                    .chars()
-                    .collect::<Vec<char>>()
-                    .chunks(chunk.width as usize + 10)
-                    .map(|c| c.iter().collect::<String>())
-                    .for_each(|chunk| {
-                        chunk.lines().for_each(|line| {
-                            content.push(Spans::from(Span::styled(
-                                line.to_owned(),
-                                Style::default().fg(if m._type == OutputType::Success {
-                                    Color::LightCyan
-                                } else {
-                                    Color::Red
-                                }),
-                            )));
-                        })
-                    });
+                // TODO: refactor this part
+                let out_lines = m.output.lines().collect::<Vec<&str>>();
+                let mut out_pool: Vec<String> = vec![];
+
+                out_lines.iter().for_each(|line| {
+                    line.chars()
+                        .collect::<Vec<char>>()
+                        .chunks(chunk.width as usize + 10)
+                        .for_each(|c| out_pool.push(c.iter().collect::<String>()));
+                });
+
+                out_pool.iter().for_each(|chunk| {
+                    chunk.lines().for_each(|line| {
+                        content.push(Spans::from(Span::styled(
+                            line.to_owned(),
+                            Style::default().fg(if m._type == OutputType::Success {
+                                Color::LightCyan
+                            } else {
+                                Color::Red
+                            }),
+                        )));
+                    })
+                });
                 ListItem::new(content)
             })
             .collect();
@@ -95,6 +100,7 @@ impl<'a> Input {
                 InputMode::Insert => Style::default().fg(Color::Yellow),
             })
             .block(Block::default().borders(Borders::ALL).title("Input"))
+            .wrap(Wrap { trim: true })
     }
 }
 
