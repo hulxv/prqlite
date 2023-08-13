@@ -35,4 +35,7 @@ impl Prqlite {
     pub fn execute_batch_with_sql(&self, sql: &str) -> Result<()> {
         Ok(self.conn.execute_batch(sql)?)
     }
+    pub fn get_conn(&self) -> Option<&str> {
+        self.conn.path()
+    }
 }
