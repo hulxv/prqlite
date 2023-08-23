@@ -36,3 +36,10 @@ rusqlite = "0.29.0"
 [[bin]]
 path = "./prqlite-cli/src/main.rs"
 name = "prqlite"
+
+
+[profile.release]
+opt-level = 'z'
+lto = true
+codegen-units = 1
+strip = true 
