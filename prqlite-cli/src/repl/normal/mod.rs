@@ -24,13 +24,13 @@ Prqlite version: {}
     };
 }
 
-pub struct SimpleRepl<'a> {
+pub struct NormalRepl<'a> {
     prompt: String,
     command_prefix: String,
     state: &'a ReplState,
 }
 
-impl<'a> SimpleRepl<'a> {
+impl<'a> NormalRepl<'a> {
     pub fn new<T: ToString>(prompt: T, command_prefix: T, state: &'a ReplState) -> Self {
         Self {
             prompt: prompt.to_string(),
@@ -40,7 +40,7 @@ impl<'a> SimpleRepl<'a> {
     }
 }
 
-impl<'a> Runner for SimpleRepl<'a> {
+impl<'a> Runner for NormalRepl<'a> {
     fn run(&self) -> Result<()> {
         let repl_input_event = ReplInputEvent::new(self.state);
         let mut stdout = stdout();

@@ -1,8 +1,7 @@
 mod commands;
 mod consts;
-mod simple;
+mod normal;
 mod traits;
-mod tui;
 
 use std::str::FromStr;
 
@@ -10,9 +9,8 @@ use crate::utils::row_value_parser;
 
 use self::commands::Commands;
 use self::commands::ExecCommand;
-use self::simple::*;
+use self::normal::*;
 use self::traits::*;
-use self::tui::*;
 
 use anyhow::{anyhow, Result};
 use comfy_table::presets::UTF8_FULL;
@@ -26,8 +24,7 @@ const DEFAULT_COMMAND_PREFIX: &str = ".";
 #[derive(Default, Clone, Copy)]
 enum ReplMode {
     #[default]
-    Simple,
-    Tui,
+    Normal,
 }
 
 // #[derive(Clone)]
@@ -55,30 +52,19 @@ impl<'a> Repl<'a> {
             state: None,
         }
     }
-    pub fn simple() -> ReplBuilder {
+    pub fn normal() -> ReplBuilder {
         ReplBuilder {
             prompt: None,
             command_prefix: None,
-            mode: Some(ReplMode::Simple),
+            mode: Some(ReplMode::Normal),
             state: None,
         }
     }
-    pub fn tui() -> ReplBuilder {
-        ReplBuilder {
-            prompt: None,
-            command_prefix: None,
-            mode: Some(ReplMode::Tui),
-            state: None,
-        }
-    }
+
     pub async fn run(&self) -> Result<()> {
-        use ReplMode::*;
         match self.mode {
-            Simple => SimpleRepl::new(&self.prompt, &self.command_prefix, self.state.clone()).run(),
-            Tui => {
-                TuiRepl::new(&self.prompt, &self.command_prefix, self.state.clone())
-                    .run()
-                    .await
+            ReplMode::Normal => {
+                NormalRepl::new(&self.prompt, &self.command_prefix, self.state.clone()).run()
             }
         }
     }
