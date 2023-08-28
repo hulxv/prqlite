@@ -1,6 +1,6 @@
 [package]
 name = "prqlite"
-version = "1.0.0-dev"
+version = "0.1.0-alpha"
 edition = "2021"
 default-run = "prqlite"
 authors = ["Mohamed Emad (hulxxv@gmail.com)"]
