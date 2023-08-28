@@ -21,11 +21,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
             deb: true
           
-          - os: ubuntu-latest
+          - os: ubuntu-20.04
             target: aarch64-unknown-linux-gnu
             deb: true
           
@@ -89,6 +89,7 @@ jobs:
           args: --no-build --no-strip --output=. --target=${{ matrix.target }}
 
       - name: Package (*nix)
+        if: contains(matrix.platform.os, 'ubuntu')
         run: >
           echo "install -Dm755 ./prqlite /usr/bin" > "install.sh" && 
           tar -cv
@@ -102,6 +103,7 @@ jobs:
         with:
           name: ${{ matrix.target }}
           path: |
+            *.exe 
             *.deb
             *.tar.gz
             *.zip
@@ -110,7 +112,6 @@ jobs:
         with:
           draft: true
           files: |
-            *.deb
-            *.tar.gz
-            *.zip
+            prqlite*
+            LICENSE
           name: ${{ steps.get_version.outputs.value }}
