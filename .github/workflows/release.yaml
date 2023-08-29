@@ -24,18 +24,20 @@ jobs:
           - os: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
             deb: true
-          
+            bin: prqlite
+
           - os: ubuntu-20.04
             target: aarch64-unknown-linux-gnu
             deb: true
-          
+
           - os: windows-latest
             target: x86_64-pc-windows-gnu
             deb: false
-          
+
           - os: macos-latest
             target: x86_64-apple-darwin
             deb: false
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -72,7 +74,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --locked --target=${{ matrix.target }} --color=always --verbose
+          args: --release --target=${{ matrix.target }} --color=always --verbose
           use-cross: ${{ runner.os == 'Linux' }}
 
       - name: Install cargo-deb
@@ -87,26 +89,22 @@ jobs:
         with:
           command: deb
           args: --no-build --no-strip --output=. --target=${{ matrix.target }}
-
-      - name: Package (*nix)
-        if: contains(matrix.platform.os, 'ubuntu')
-        run: >
-          echo "install -Dm755 ./prqlite /usr/bin" > "install.sh" && 
-          tar -cv
-          install.sh LICENSE README.md ./docs/
-          -C target/${{ matrix.target }}/release/ prqlite
-          | gzip --best
-          > 'prqlite-${{ steps.get_version.outputs.value }}-${{ matrix.target }}.tar.gz'
+      - name: Package as archive
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            7z a -tzip prqlite-${{ steps.get_version.outputs.value }}-${{ matrix.target }}.zip -r target/${{ matrix.target }}/release/prqlite.exe LICENSE README.md
+          else
+            echo "install -Dm755 ./prqlite /usr/bin" > "install.sh" 
+            tar -cv install.sh LICENSE README.md -C target/${{ matrix.target }}/release/ prqlite | gzip --best  > 'prqlite-${{ steps.get_version.outputs.value }}-${{ matrix.target }}.tar.gz'
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.target }}
           path: |
-            *.exe 
-            *.deb
-            *.tar.gz
-            *.zip
+            prqlite*
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
