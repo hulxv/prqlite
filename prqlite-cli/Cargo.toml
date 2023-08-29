@@ -23,6 +23,7 @@ unicode-width = "0.1.9"
 
 prqlite-rs ={ path = "../prqlite-rs" }
 regex = "1.9.1"
-rusqlite = "0.29.0"
+rusqlite = {version = "0.29.0", features = ["bundled"]}
 lazy_static = "1.4.0"
+
 
