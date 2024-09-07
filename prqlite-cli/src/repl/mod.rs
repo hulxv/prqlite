@@ -3,14 +3,15 @@ mod consts;
 mod normal;
 mod traits;
 
+
 use std::str::FromStr;
 
 use crate::utils::row_value_parser;
 
-use self::commands::Commands;
-use self::commands::ExecCommand;
-use self::normal::*;
-use self::traits::*;
+use commands::Commands;
+use commands::ExecCommands;
+use normal::*;
+use traits::*;
 
 use anyhow::{anyhow, Result};
 use comfy_table::presets::UTF8_FULL;
@@ -64,7 +65,7 @@ impl<'a> Repl<'a> {
     pub async fn run(&self) -> Result<()> {
         match self.mode {
             ReplMode::Normal => {
-                NormalRepl::new(&self.prompt, &self.command_prefix, self.state.clone()).run()
+                NormalRepl::new(&self.prompt, &self.command_prefix, self.state).run()
             }
         }
     }
