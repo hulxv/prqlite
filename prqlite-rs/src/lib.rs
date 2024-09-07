@@ -3,7 +3,7 @@ mod tests;
 
 use anyhow::Result;
 use prql_compiler::{compile, Options};
-use rusqlite::{Connection, Error::ExecuteReturnedResults, Params, Statement};
+use rusqlite::{Connection, Statement};
 
 #[derive(Debug)]
 pub struct Prqlite {
@@ -21,13 +21,13 @@ impl Prqlite {
         Ok(stmt)
     }
     pub fn execute_with_sql(&self, sql: &str) -> Result<Statement> {
-        let stmt = self.conn.prepare(sql).unwrap();
+        let stmt = self.conn.prepare(sql)?;
         Ok(stmt)
     }
     pub fn execute_batch(&self, prql: &str) -> Result<()> {
         let mut queries: Vec<String> = vec![];
         for query in prql.split(";").into_iter() {
-            let sql = compile(query, &Options::default().no_format().no_signature()).unwrap();
+            let sql = compile(query, &Options::default().no_format().no_signature())?;
             queries.push(sql);
         }
         Ok(self.conn.execute_batch(&queries.join(";"))?)
